@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Investment Risk Analysis</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .container { max-width: 600px; margin: auto; text-align: center; }
+        input, button { margin: 5px; padding: 10px; width: 90%; }
+        .result { margin-top: 20px; padding: 10px; border: 1px solid #ccc; }
+        canvas { margin-top: 20px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Investment Risk Analysis</h1>
+        <input type="text" id="ticker" placeholder="Stock Ticker">
+        <input type="number" id="allocation" placeholder="Allocation (%)">
+        <input type="text" id="prices" placeholder="Prices (comma-separated)">
+        <button onclick="addStock()">Add Stock</button>
+        
+        <div class="result">
+            <h3>Portfolio Metrics</h3>
+            <p><strong>Portfolio Volatility:</strong> <span id="volatility">0</span>%</p>
+            <p><strong>Value at Risk (VaR 95%):</strong> <span id="var">0</span>%</p>
+            <p><strong>Sharpe Ratio:</strong> <span id="sharpe">0</span></p>
+            <p><strong>Beta:</strong> <span id="beta">1</span></p>
+        </div>
+        
+        <canvas id="volatilityChart"></canvas>
+        <canvas id="varChart"></canvas>
+        <canvas id="sharpeChart"></canvas>
+        <canvas id="betaChart"></canvas>
+    </div>
+
+    <script>
+        let portfolio = [];
+        
+        function calculateReturns(prices) {
+            return prices.slice(1).map((price, i) => ((price - prices[i]) / prices[i]) * 100);
+        }
+
+        function calculateMetrics() {
+            let totalVolatility = 0;
+            let totalVaR = 0;
+            let totalReturn = 0;
+            let totalBeta = 1;
+            let labels = [];
+            let volatilities = [];
+            let vars = [];
+            let sharpes = [];
+            let betas = [];
+            
+            portfolio.forEach(stock => {
+                const returns = calculateReturns(stock.prices);
+                const volatility = Math.sqrt(returns.map(r => r ** 2).reduce((a, b) => a + b, 0) / returns.length);
+                const var95 = volatility * 1.65;
+                totalReturn += (returns.reduce((a, b) => a + b, 0) / returns.length) * (stock.allocation / 100);
+                totalVolatility += volatility * (stock.allocation / 100);
+                totalVaR += var95 * (stock.allocation / 100);
+                labels.push(stock.ticker);
+                volatilities.push(volatility);
+                vars.push(var95);
+                sharpes.push(totalReturn / totalVolatility);
+                betas.push(1);
+            });
+            
+            document.getElementById("volatility").textContent = totalVolatility.toFixed(2);
+            document.getElementById("var").textContent = (-totalVaR).toFixed(2);
+            document.getElementById("sharpe").textContent = (totalReturn / totalVolatility).toFixed(2);
+            document.getElementById("beta").textContent = totalBeta.toFixed(2);
+            
+            updateCharts(labels, volatilities, vars, sharpes, betas);
+        }
+
+        function addStock() {
+            const ticker = document.getElementById("ticker").value;
+            const allocation = parseFloat(document.getElementById("allocation").value);
+            const prices = document.getElementById("prices").value.split(",").map(Number);
+            
+            if (!ticker || isNaN(allocation) || prices.some(isNaN)) {
+                alert("Please enter valid inputs.");
+                return;
+            }
+            
+            portfolio.push({ ticker, allocation, prices });
+            document.getElementById("ticker").value = "";
+            document.getElementById("allocation").value = "";
+            document.getElementById("prices").value = "";
+            
+            calculateMetrics();
+        }
+
+        function updateCharts(labels, volatilities, vars, sharpes, betas) {
+            createChart("volatilityChart", "Volatility (%)", labels, volatilities);
+            createChart("varChart", "Value at Risk (VaR 95%)", labels, vars);
+            createChart("sharpeChart", "Sharpe Ratio", labels, sharpes);
+            createChart("betaChart", "Beta", labels, betas);
+        }
+
+        function createChart(canvasId, label, labels, data) {
+            new Chart(document.getElementById(canvasId).getContext("2d"), {
+                type: "bar",
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: label,
+                        data: data,
+                        backgroundColor: "rgba(75, 192, 192, 0.2)",
+                        borderColor: "rgba(75, 192, 192, 1)",
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: { beginAtZero: true }
+                    }
+                }
+            });
+        }
+    </script>
+</body>
+</html>
